@@ -16,7 +16,7 @@ from urllib3.util import Retry
 class WoZaiXiaoYuanPuncher:
     def __init__(self):
         # JWSESSION
-        self.jwsession = None
+        self.jwsession = os.environ['WZXY_JWSESSION']
         # 打卡结果
         self.status_code = 0
         # 登陆接口
@@ -35,57 +35,13 @@ class WoZaiXiaoYuanPuncher:
         # 请求体（必须有）
         self.body = "{}"
 
-    # 登录
-    def login(self):
-        username, password = str(os.environ['WZXY_USERNAME']), str(os.environ['WZXY_PASSWORD'])
-        url = f'{self.loginUrl}?username={username}&password={password}'
-        self.session = requests.session()
-        # 登录
-        response = self.session.post(url=url, data=self.body, headers=self.header)
-        res = json.loads(response.text)
-        if res["code"] == 0:
-            print("使用账号信息登录成功")
-            jwsession = response.headers['JWSESSION']
-            self.setJwsession(jwsession)
-            return True
-        else:
-            print(res)
-            print("登录失败，请检查账号信息")
-            self.status_code = 5
-            return False
-
-    # 设置JWSESSION
-    def setJwsession(self, jwsession):
-        # 如果找不到cache,新建cache储存目录与文件
-        if not os.path.exists('.cache'):
-            print("正在创建cache储存目录与文件...")
-            os.mkdir('.cache')
-            data = {"jwsession": jwsession}
-        elif not os.path.exists('.cache/cache.json'):
-            print("正在创建cache文件...")
-            data = {"jwsession": jwsession}
-        # 如果找到cache,读取cache并更新jwsession
-        else:
-            print("找到cache文件，正在更新cache中的jwsession...")
-            data = utils.processJson('.cache/cache.json').read()
-            data['jwsession'] = jwsession
-        utils.processJson(".cache/cache.json").write(data)
-        self.jwsession = data['jwsession']
-
-    # 获取JWSESSION
-    def getJwsession(self):
-        if not self.jwsession:  # 读取cache中的配置文件
-            data = utils.processJson(".cache/cache.json").read()
-            self.jwsession = data['jwsession']
-        return self.jwsession
-
     # 执行打卡
     def doPunchIn(self):
         print("正在打卡...")
         url = "https://student.wozaixiaoyuan.com/health/save.json"
         self.header['Host'] = "student.wozaixiaoyuan.com"
         self.header['Content-Type'] = "application/x-www-form-urlencoded"
-        self.header['JWSESSION'] = self.getJwsession()
+        self.header['JWSESSION'] = self.jwsession
         sign_data = {
             "answers": '["0","1","1"]', # 要提交的回答选项。各个学校问题可能不同，请根据自己的抓包结果修改。
             "latitude": os.environ['WZXY_LATITUDE'],
@@ -105,14 +61,8 @@ class WoZaiXiaoYuanPuncher:
         # 如果 jwsession 无效，则重新 登录 + 打卡
         if response['code'] == -10:
             print(response)
-            print('jwsession 无效，将尝试使用账号信息重新登录')
+            print('jwsession 无效')
             self.status_code = 4
-            loginStatus = self.login()
-            if loginStatus:
-                self.doPunchIn()
-            else:
-                print(response)
-                print("重新登录失败，请检查账号信息")
         elif response["code"] == 0:
             self.status_code = 1
             print("打卡成功")
@@ -231,15 +181,5 @@ class WoZaiXiaoYuanPuncher:
 
 if __name__ == '__main__':
     # 找不到cache，登录+打卡
-    wzxy = WoZaiXiaoYuanPuncher()
-    if not os.path.exists('.cache'):
-        print("找不到cache文件，正在使用账号信息登录...")
-        loginStatus = wzxy.login()
-        if loginStatus:
-            wzxy.doPunchIn()
-        else:
-            print("登陆失败，请检查账号信息")
-    else:
-        print("找到cache文件，尝试使用jwsession打卡...")
-        wzxy.doPunchIn()
+    wzxy.doPunchIn()
     wzxy.sendNotification()
