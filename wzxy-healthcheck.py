@@ -42,6 +42,7 @@ class WoZaiXiaoYuanPuncher:
         self.header['Host'] = "student.wozaixiaoyuan.com"
         self.header['Content-Type'] = "application/x-www-form-urlencoded"
         self.header['JWSESSION'] = self.jwsession
+        cur_time = int(round(time.time() * 1000))
         sign_data = {
             "answers": '["0","1","1"]', # 要提交的回答选项。各个学校问题可能不同，请根据自己的抓包结果修改。
             "latitude": os.environ['WZXY_LATITUDE'],
